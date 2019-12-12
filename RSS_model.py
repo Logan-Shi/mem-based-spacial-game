@@ -12,14 +12,15 @@ from matplotlib import pyplot as plt
 import time
 
 ## Hyper-parameters
-R, S, T, P = [3, 0, 5, 1] # rewards
+R, S, T, P = [4, 0, 5, 1] # rewards
 ref0 = 100 # init reference
-num_nei = 4 # number of neighboors
+num_nei = 4 # number of neighboors 
 type_nei = 'r' # r(andom) m(oore) v(on)
 size_row, size_col = [20, 20] # size of the grid
 d =  0.5 # forgetting rate
 s = 0.25 # activation noise parameter
 num_generation = 1000 #int(20e4) # number of generations in total
+iteration = num_generation/100 # number of generation to calc mean
 window_size = int(1e4) # number of generations in 1 window
 
 # chunk
@@ -43,17 +44,18 @@ def B_fun(t1, tn, n, d, s, all_radom = False):
                     (n - 1) * (np.power(tn, 1-d) - np.power(t1, 1-d)) 
                     / (1 - d) / (tn - t1))
     if all_radom:
-        noise = np.random.randn(2, num_nei + 1) * np.sqrt(np.pi * s / np.sqrt(3))
+        noise = np.random.normal(0, np.pi * s / np.sqrt(3), 2*num_nei+2).reshape(2, num_nei+1)
     else:
         noise = np.random.randn(1)[0] * np.sqrt(np.pi * s / np.sqrt(3))
+    #print('generation: '+str(generation)+'\nmem: '+str(memory)+'\nnoise: '+str(noise))
     return memory + noise
 
 # the reference of each chunk
 class Chunks_ref():
     def __init__(self):
         self.n = ref0 * np.ones([2, num_nei+1]) # total number of references
-        self.t1 = np.ones([2, num_nei+1]) # time since last reference
-        self.tn = ref0 * 2 * num_nei+1 * np.ones([2, num_nei+1]) # time since the fist reference
+        self.tn = np.ones([2, num_nei+1]) # time since last reference
+        self.t1 = 2 * np.ones([2, num_nei+1]) # time since the fist reference
         self.update_B() # activations of a declarative chunks
     def update_B(self):
         self.B = B_fun(self.t1, self.tn, self.n, d, s, True)
@@ -102,9 +104,9 @@ class Player():
             N_config += state[self.nei[2 * nei_no], self.nei[2 * nei_no + 1]]
         # update chunks references
         self.chunks_ref.n[p_move, N_config] += 1 # total number of references
-        self.chunks_ref.t1[p_move, N_config] = 0 # time since last reference
-        self.chunks_ref.t1 += 1
-        self.chunks_ref.tn += 1 # time since the fist reference
+        self.chunks_ref.tn[p_move, N_config] = 0 # time since last reference
+        self.chunks_ref.t1 += 1 # time since the fist reference
+        self.chunks_ref.tn += 1 
         self.chunks_ref.update_B() # activations of a declarative chunks
         return 0
 
@@ -129,16 +131,20 @@ f_c = [] # fraction of cooperations in a state
 if __name__ == '__main__':
     verbose = True
     start_time = time.time()
+    fc_sum = 0
     for generation in range(num_generation):
-        # part 1, each player acts according to the state of last generation, 125/s
+        # part 1, each player acts according to the state of last generation
         generate_state = np.vectorize(Player.act)
         state = generate_state(players)
-        f_c.append(np.sum(state) / size_row / size_col)
-        #part 2, each player update the reference of chunks according to current state, 8/s
+        fc_sum +=np.sum(state) / size_row / size_col
+        #part 2, each player update the reference of chunks according to current state
         update_mem = np.vectorize(Player.update_chunks_ref)
         update_mem(players)
-        if verbose and generation % 100 == 0:
+        if verbose and generation % iteration == 0 and generation != 0:
+            f_c.append(fc_sum/iteration)
+            fc_sum = 0
             print('Finished Generation: {}, duration: {:.2f}s'.format(generation, time.time() - start_time))
     
-    plt.plot(range(num_generation), f_c)
-    plt.savefig('f_c.png')
+    plt.plot(range(int(num_generation/iteration)-1), f_c)
+    plt.title('nei_'+str(num_nei)+'_size_'+str(size_col*size_row))
+    plt.savefig('f_c_.png')
