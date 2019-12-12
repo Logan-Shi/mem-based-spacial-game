@@ -16,10 +16,10 @@ R, S, T, P = [3, 0, 5, 1] # rewards
 ref0 = 100 # init reference
 num_nei = 4 # number of neighboors
 type_nei = 'r' # r(andom) m(oore) v(on)
-size_row, size_col = [50, 50] # size of the grid
+size_row, size_col = [20, 20] # size of the grid
 d =  0.5 # forgetting rate
 s = 0.25 # activation noise parameter
-num_generation = 100 #int(20e4) # number of generations in total
+num_generation = 1000 #int(20e4) # number of generations in total
 window_size = int(1e4) # number of generations in 1 window
 
 # chunk
@@ -116,8 +116,6 @@ while (True):
         
         for row_no in range(size_row):
             for col_no in range(size_col):
-                #print('current row: '+str(row_no))
-                #print('  current col: '+str(col_no)+'\n')
                 players[row_no, col_no].get_neighbors()
         print('Finished generating radom neighbors.')
         break
@@ -132,7 +130,6 @@ if __name__ == '__main__':
     verbose = True
     start_time = time.time()
     for generation in range(num_generation):
-        print('current generation: '+str(generation)+'\n')
         # part 1, each player acts according to the state of last generation, 125/s
         generate_state = np.vectorize(Player.act)
         state = generate_state(players)
